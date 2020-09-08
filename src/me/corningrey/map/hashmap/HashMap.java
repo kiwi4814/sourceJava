@@ -652,39 +652,61 @@ public class HashMap<K, V> extends AbstractMap<K, V>
      * @return previous value, or null if none
      */
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent, boolean evict) {
+        System.out.println("======开始=========");
+        // 申明变量tab：临时数组
         Node<K, V>[] tab;
+        // 申明变量p：数组中的节点
         Node<K, V> p;
+        // 申明变量n：存放老的容量，i：tab临时数组的下标
         int n, i;
+        // 将table复制给临时数组tab
+        // 将如果table为null或者长度为0，进行初始化分配大小
         if ((tab = table) == null || (n = tab.length) == 0)
             n = (tab = resize()).length;
+        // 将tab对应的下标赋值给p
+        // (n - 1) & hash计算数组下标，如果该位置的数组元素null，说明没有碰撞，将value封装为一个新的Node并赋值
         if ((p = tab[i = (n - 1) & hash]) == null)
             tab[i] = newNode(hash, key, value, null);
+            // 如果碰撞了
         else {
+            // 临时节点，最后赋值给p
             Node<K, V> e;
+            // p节点的key值
             K k;
+            // 首先判断key是否存在，如果存在，覆盖原来的值【值相等，hash值相等，equals】
             if (p.hash == hash &&
-                    ((k = p.key) == key || (key != null && key.equals(k))))
+                    ((k = p.key) == key || (key != null && key.equals(k)))) {
                 e = p;
-            else if (p instanceof TreeNode)
+            }
+            // 判断p节点是否是红黑树
+            else if (p instanceof TreeNode) {
                 e = ((TreeNode<K, V>) p).putTreeVal(this, tab, hash, key, value);
+            }
+            // 是链表的情况
             else {
+                // 循环
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
+                        // 将next指向新的节点
                         p.next = newNode(hash, key, value, null);
+                        // binCount>=7,即第八次循环链表的长度为8时，转变为红黑树并且结束循环
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                             treeifyBin(tab, hash);
                         break;
                     }
+                    // 如果链表中已经存在该key，结束循环
                     if (e.hash == hash &&
                             ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
                     p = e;
                 }
             }
+            // 根据onlyIfAbsent规则选择是否覆盖value值【覆盖参数为true或者之前的值为空】
             if (e != null) { // existing mapping for key
                 V oldValue = e.value;
                 if (!onlyIfAbsent || oldValue == null)
                     e.value = value;
+                // 预留给LinkedHashMap的afterNodeAccess() afterNodeInsertion() afterNodeRemoval() 方法。
                 afterNodeAccess(e);
                 return oldValue;
             }
@@ -693,6 +715,10 @@ public class HashMap<K, V> extends AbstractMap<K, V>
         if (++size > threshold)
             resize();
         afterNodeInsertion(evict);
+        System.out.println("size==" + size);
+        System.out.println("threshold==" + threshold);
+        System.out.println("length==" + table.length);
+        System.out.println("======结束=========");
         return null;
     }
 
@@ -702,44 +728,50 @@ public class HashMap<K, V> extends AbstractMap<K, V>
      * Otherwise, because we are using power-of-two expansion, the
      * elements from each bin must either stay at same index, or move
      * with a power of two offset in the new table.
-     * Resize方法做了三件事：
-     * 1. 重新设置数组的阈值
-     * 2. 计算扩容后新数组的容量
-     * 3.
      *
      * @return the table
      */
     final Node<K, V>[] resize() {
         // 将当前数组赋值给oldTab
         Node<K, V>[] oldTab = table;
-        // oldCap当前数组的容量
+        // oldCap旧数组的容量
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
-        // oldThr为当前数组的阈值
+        // oldThr为旧数组的阈值
         int oldThr = threshold;
         // newCap为扩容后的新数组的容量，newThr为扩容后新数组的阈值，初始值均为0
         int newCap, newThr = 0;
-        //
         if (oldCap > 0) {
-            // 如果当前数组容量大于等于MAXIMUM_CAPACITY，将当前阈值设置为Integer.MAX_VALUE（2^31）并返回当前数组
+            // 如果旧数组容量大于等于MAXIMUM_CAPACITY，将当前阈值设置为Integer.MAX_VALUE（2^31）并返回旧数组
             if (oldCap >= MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
-            } else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
-                    oldCap >= DEFAULT_INITIAL_CAPACITY)
-                newThr = oldThr << 1; // double threshold
-        } else if (oldThr > 0) // initial capacity was placed in threshold
+                // 新数组的容量为旧数组的容量翻倍，如果旧数组的容量介于16和最大值的1/2【前闭后开】之间，将阈值也翻倍
+            } else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY && oldCap >= DEFAULT_INITIAL_CAPACITY) {
+                newThr = oldThr << 1;
+            }
+            // 如果旧数组容量为0但阈值不为0，将新数组的容量设置为旧的阈值
+        } else if (oldThr > 0) {
             newCap = oldThr;
-        else {               // zero initial threshold signifies using defaults
+        }
+        // 如果旧数组容量和阈值都为0，那么设置newCap为默认值16，newThr为负载因子*默认值 = 12
+        else {
             newCap = DEFAULT_INITIAL_CAPACITY;
             newThr = (int) (DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
         }
+        // 什么情况这里的判断会为true？
+        // 1。 旧数组的容量和阈值有一个为0的时候
+        // 2。 旧数组的容量小于16或者大于等于2^29
         if (newThr == 0) {
+            // 当新的容量和阈值都不大于最大容量时，将新的阈值设置为新容量*负载因子
             float ft = (float) newCap * loadFactor;
             newThr = (newCap < MAXIMUM_CAPACITY && ft < (float) MAXIMUM_CAPACITY ?
                     (int) ft : Integer.MAX_VALUE);
         }
         threshold = newThr;
+        // 上面的方法重新计算了resize之后的新数组的容量和阈值
+        // 下面进行新数组的复制
         @SuppressWarnings({"rawtypes", "unchecked"})
+        // 初始化一个newCap大小的新数组，并赋值给table
         Node<K, V>[] newTab = (Node<K, V>[]) new Node[newCap];
         table = newTab;
         if (oldTab != null) {
@@ -783,6 +815,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 }
             }
         }
+        System.out.println("newCap" + newCap);
         return newTab;
     }
 
