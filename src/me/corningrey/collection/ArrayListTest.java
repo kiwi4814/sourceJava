@@ -2,7 +2,7 @@ package me.corningrey.collection;
 
 import java.util.List;
 
-public class ArrayListGrow {
+public class ArrayListTest {
     public static void main(String[] args) {
         List<String> grow1 = new ArrayList<>();
         grow1.add("1");
